@@ -28,7 +28,7 @@ from quiz_creator import (
     create_question_options, create_correct_answer,
     add_more_question, finish_quiz_creation, cancel_creation,
     NAME, DESCRIPTION, DIFFICULTY, QUESTION, OPTIONS,
-    CORRECT_ANSWER, CONFIRM, import_excel_start
+    CORRECT_ANSWER, CONFIRM
 )
 
 # Настройка логирования
@@ -1265,8 +1265,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await top_command(update, context)
             elif text == "❓ Помощь":
                 await help_command(update, context)
-            elif text == "📊 Импорт из Excel":
-                await import_excel_start(update, context)
             return
 
     # ДАЛЬШЕ ИДЕТ ОБЫЧНАЯ ОБРАБОТКА СООБЩЕНИЙ
@@ -1700,7 +1698,8 @@ async def finish_simple_game(context, room_code):
     # Удаляем комнату
     del active_rooms[room_code]
 
-def main(import_excel_start=None):
+
+def main():
     """Главная функция запуска бота"""
     # Инициализируем базу данных
     init_database()
@@ -1721,8 +1720,6 @@ def main(import_excel_start=None):
     application.add_handler(CommandHandler("school", school_quizzes_command))
     application.add_handler(CommandHandler("room", simple_create_room))
     application.add_handler(CommandHandler("join", simple_join_command))
-    application.add_handler(CommandHandler("import", import_excel_start))
-    application.add_handler(CommandHandler("template", send_template))
 
 
     # ===== ДИАЛОГ СОЗДАНИЯ КВИЗА =====
@@ -1733,23 +1730,8 @@ def main(import_excel_start=None):
         add_more_question, finish_quiz_creation, cancel_creation,
         NAME, DESCRIPTION, DIFFICULTY, QUESTION, OPTIONS,
         CORRECT_ANSWER, CONFIRM,
-        import_excel_start, handle_excel_file, process_import_name,
-        send_template, IMPORT_WAIT_FILE, IMPORT_CONFIRM
+        IMPORT_WAIT_FILE, IMPORT_CONFIRM
     )
-
-    import_conv = ConversationHandler(
-        entry_points=[
-            CommandHandler("import", import_excel_start),
-            MessageHandler(filters.Regex('^📊 Импорт из Excel$'), import_excel_start)
-        ],
-        states={
-            IMPORT_WAIT_FILE: [MessageHandler(filters.Document.ALL, handle_excel_file)],
-            IMPORT_CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_import_name)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel_creation)],
-    )
-    application.add_handler(import_conv)
-    application.add_handler(CommandHandler("template", send_template))
 
     # ===== ДИАЛОГ СОЗДАНИЯ КВИЗА =====
     conv_handler = ConversationHandler(
