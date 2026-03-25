@@ -1265,6 +1265,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await top_command(update, context)
             elif text == "❓ Помощь":
                 await help_command(update, context)
+            elif text == "📝 Импорт из файла":
+                await import_file_start(update, context)
             return
 
     # ДАЛЬШЕ ИДЕТ ОБЫЧНАЯ ОБРАБОТКА СООБЩЕНИЙ
@@ -1699,6 +1701,168 @@ async def finish_simple_game(context, room_code):
     del active_rooms[room_code]
 
 
+# ========== ИМПОРТ ИЗ ТЕКСТОВОГО ФАЙЛА ==========
+
+async def import_file_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Начинает процесс импорта из текстового файла"""
+    await update.message.reply_text(
+        "📝 **Импорт вопросов из текстового файла**\n\n"
+        "Отправь мне текстовый файл (.txt) с вопросами.\n\n"
+        "**Формат файла:**\n"
+        "```\n"
+        "Вопрос: текст вопроса\n"
+        "Вариант1: ответ1\n"
+        "Вариант2: ответ2\n"
+        "Вариант3: ответ3\n"
+        "Вариант4: ответ4\n"
+        "Правильный ответ: ответ1\n"
+        "Сложность: 1\n"
+        "---\n"
+        "Вопрос: следующий вопрос...\n"
+        "```\n\n"
+        "Разделитель между вопросами: `---` (три дефиса)",
+        parse_mode='Markdown'
+    )
+
+
+async def handle_text_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает загруженный текстовый файл"""
+    import os
+    import time
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    # Получаем файл
+    file = await update.message.document.get_file()
+
+    # Создаем временное имя файла
+    temp_filename = f"temp_import_{update.effective_user.id}_{int(time.time())}.txt"
+
+    # Скачиваем файл
+    await file.download_to_drive(temp_filename)
+
+    # Читаем файл
+    with open(temp_filename, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Удаляем временный файл
+    os.remove(temp_filename)
+
+    # Парсим вопросы
+    questions = parse_questions_from_text(content)
+
+    if not questions:
+        await update.message.reply_text(
+            "❌ Не удалось найти вопросы в файле.\n"
+            "Проверь формат: каждый вопрос начинается с 'Вопрос:',\n"
+            "варианты с 'Вариант1:', 'Вариант2:', ...\n"
+            "В конце каждого вопроса ставь '---'"
+        )
+        return
+
+    # Сохраняем вопросы в контекст
+    context.user_data['import_questions'] = questions
+    context.user_data['import_step'] = 'waiting_name'
+
+    # Спрашиваем название квиза
+    await update.message.reply_text(
+        f"✅ Найдено {len(questions)} вопросов.\n\n"
+        "📝 Придумай название для квиза (или отправь 'пропустить'):"
+    )
+
+
+def parse_questions_from_text(content):
+    """Парсит вопросы из текстового файла"""
+    questions = []
+    blocks = content.split('---')
+
+    for block in blocks:
+        block = block.strip()
+        if not block:
+            continue
+
+        question_data = {}
+        lines = block.split('\n')
+
+        for line in lines:
+            line = line.strip()
+            if ':' in line:
+                key, value = line.split(':', 1)
+                key = key.strip()
+                value = value.strip()
+
+                if key == 'Вопрос':
+                    question_data['question'] = value
+                elif key.startswith('Вариант'):
+                    num = key.replace('Вариант', '')
+                    if 'options' not in question_data:
+                        question_data['options'] = []
+                    question_data['options'].append(value)
+                elif key == 'Правильный ответ':
+                    question_data['correct'] = value
+                elif key == 'Сложность':
+                    try:
+                        question_data['difficulty'] = int(value)
+                    except:
+                        question_data['difficulty'] = 5
+
+        # Проверяем, что все поля есть
+        if all(k in question_data for k in ['question', 'options', 'correct', 'difficulty']):
+            questions.append(question_data)
+
+    return questions
+
+
+async def process_import_name_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Создает квиз из импортированных вопросов"""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    from database import create_quiz, add_question_to_quiz
+
+    text = update.message.text
+    questions = context.user_data.get('import_questions', [])
+
+    if not questions:
+        await update.message.reply_text("❌ Нет вопросов для импорта!")
+        return
+
+    quiz_name = None
+    if text.lower() != 'пропустить':
+        quiz_name = text
+
+    # Создаем квиз
+    quiz_id, quiz_code = create_quiz(
+        update.effective_user.id,
+        quiz_name or "Импортированный квиз",
+        f"Импортировано из текстового файла"
+    )
+
+    # Добавляем вопросы
+    for q in questions:
+        add_question_to_quiz(
+            quiz_id,
+            q['question'],
+            q['options'],
+            q['correct'],
+            q['difficulty']
+        )
+
+    # Очищаем данные
+    context.user_data.pop('import_questions', None)
+    context.user_data.pop('import_step', None)
+
+    # Результат
+    keyboard = [[InlineKeyboardButton("▶ Начать квиз", callback_data=f"start_quiz_{quiz_code}")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        f"✅ **Импорт завершен!**\n\n"
+        f"📌 Название: {quiz_name or 'Импортированный квиз'}\n"
+        f"❓ Вопросов: {len(questions)}\n"
+        f"🔑 Код: `{quiz_code}`\n\n"
+        f"Можешь поделиться кодом с друзьями!",
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
+    )
+
 def main():
     """Главная функция запуска бота"""
     # Инициализируем базу данных
@@ -1720,6 +1884,10 @@ def main():
     application.add_handler(CommandHandler("school", school_quizzes_command))
     application.add_handler(CommandHandler("room", simple_create_room))
     application.add_handler(CommandHandler("join", simple_join_command))
+    # Команды для импорта
+    application.add_handler(CommandHandler("importfile", import_file_start))
+    application.add_handler(MessageHandler(filters.Document.ALL, handle_text_file))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_import_name_file))
 
 
     # ===== ДИАЛОГ СОЗДАНИЯ КВИЗА =====

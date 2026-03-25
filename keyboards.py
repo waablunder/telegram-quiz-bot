@@ -5,7 +5,7 @@ def get_main_keyboard():
     """Главная клавиатура бота"""
     keyboard = [
         ['🎮 Играть', '📚 Школьные квизы'],
-        ['➕ Создать квиз', '📊 Статистика'],
+        ['➕ Создать квиз', '📝 Импорт из файла'],
         ['🏆 Топ игроков', '❓ Помощь']
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
