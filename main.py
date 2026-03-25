@@ -1283,8 +1283,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await my_quizzes_command(update, context)
     elif text == "📚 Школьные квизы":
         await school_quizzes_command(update, context)
-    elif text == "📊 Импорт из Excel":
-        await import_excel_start(update, context)
     elif text == "📊 Статистика":
         await stats_command(update, context)
     elif text == "🏆 Топ игроков":
@@ -1763,6 +1761,14 @@ async def handle_text_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['import_questions'] = questions
     context.user_data['import_step'] = 'waiting_name'
 
+    # ОТЛАДКА: выводим количество найденных вопросов
+    print(f"Найдено вопросов: {len(questions)}")
+    for i, q in enumerate(questions):
+        print(f"Вопрос {i + 1}: {q['question'][:50]}...")
+        print(f"  Варианты: {q['options']}")
+        print(f"  Правильный: {q['correct']}")
+        print(f"  Сложность: {q['difficulty']}")
+
     # Спрашиваем название квиза
     await update.message.reply_text(
         f"✅ Найдено {len(questions)} вопросов.\n\n"
@@ -1781,6 +1787,8 @@ def parse_questions_from_text(content):
             continue
 
         question_data = {}
+        options = []
+
         lines = block.split('\n')
 
         for line in lines:
@@ -1793,10 +1801,7 @@ def parse_questions_from_text(content):
                 if key == 'Вопрос':
                     question_data['question'] = value
                 elif key.startswith('Вариант'):
-                    num = key.replace('Вариант', '')
-                    if 'options' not in question_data:
-                        question_data['options'] = []
-                    question_data['options'].append(value)
+                    options.append(value)
                 elif key == 'Правильный ответ':
                     question_data['correct'] = value
                 elif key == 'Сложность':
@@ -1805,9 +1810,16 @@ def parse_questions_from_text(content):
                     except:
                         question_data['difficulty'] = 5
 
+        question_data['options'] = options
+
         # Проверяем, что все поля есть
-        if all(k in question_data for k in ['question', 'options', 'correct', 'difficulty']):
-            questions.append(question_data)
+        if 'question' in question_data and 'options' in question_data and 'correct' in question_data and 'difficulty' in question_data:
+            if len(question_data['options']) >= 2:
+                questions.append(question_data)
+            else:
+                print(f"Ошибка: недостаточно вариантов для вопроса: {question_data.get('question', '???')}")
+        else:
+            print(f"Ошибка: не все поля заполнены для вопроса: {question_data}")
 
     return questions
 
@@ -1858,7 +1870,7 @@ async def process_import_name_file(update: Update, context: ContextTypes.DEFAULT
         f"📌 Название: {quiz_name or 'Импортированный квиз'}\n"
         f"❓ Вопросов: {len(questions)}\n"
         f"🔑 Код: `{quiz_code}`\n\n"
-        f"Можешь поделиться кодом с друзьями!",
+        f"Можешь поделиться кодом с друзьями или нажать кнопку, чтобы начать!",
         reply_markup=reply_markup,
         parse_mode='Markdown'
     )
