@@ -2,10 +2,9 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMa
 
 
 def get_main_keyboard():
-    """Главная клавиатура бота"""
     keyboard = [
         ['🎮 Играть', '📚 Школьные квизы'],
-        ['➕ Создать квиз', '📝 Импорт из файла'],
+        ['➕ Создать квиз', '📊 Статистика'],
         ['🏆 Топ игроков', '❓ Помощь']
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
