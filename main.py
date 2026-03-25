@@ -1703,8 +1703,6 @@ async def finish_simple_game(context, room_code):
 
 async def import_file_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Начинает процесс импорта из текстового файла"""
-    # Очищаем старые данные импорта
-    context.user_data.clear()
 
     await update.message.reply_text(
         "📝 **Импорт вопросов из текстового файла**\n\n"
@@ -1729,14 +1727,6 @@ async def import_file_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_text_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает загруженный текстовый файл"""
 
-    # Если уже есть активный импорт, предлагаем завершить его
-    if 'import_questions' in context.user_data:
-        await update.message.reply_text(
-            "⚠️ Уже есть активный импорт.\n"
-            "Сначала заверши его, отправив название квиза.\n"
-            "Или начни заново командой /importfile"
-        )
-        return
 
     import os
     import time
@@ -1843,23 +1833,17 @@ async def process_import_name_file(update: Update, context: ContextTypes.DEFAULT
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     from database import create_quiz, add_question_to_quiz
 
-    # Проверяем, есть ли данные импорта
-    if 'import_questions' not in context.user_data:
+    # Проверяем, есть ли вопросы для импорта
+    questions = context.user_data.get('import_questions', [])
+
+    if not questions:
         await update.message.reply_text(
-            "❌ Нет активного импорта.\n"
-            "Начни импорт заново: /importfile"
+            "❌ Нет вопросов для импорта.\n"
+            "Сначала отправь файл с вопросами: /importfile"
         )
         return
 
     text = update.message.text
-    questions = context.user_data.get('import_questions', [])
-
-    if not questions:
-        await update.message.reply_text("❌ Нет вопросов для импорта!")
-        # Очищаем данные
-        context.user_data.clear()
-        return
-
     quiz_name = None
     if text.lower() != 'пропустить':
         quiz_name = text
@@ -1882,7 +1866,7 @@ async def process_import_name_file(update: Update, context: ContextTypes.DEFAULT
                 q['difficulty']
             )
 
-        # ОЧИЩАЕМ ВСЕ ДАННЫЕ КОНТЕКСТА (это важно!)
+        # ОЧИЩАЕМ ДАННЫЕ ТОЛЬКО ПОСЛЕ УСПЕШНОГО СОЗДАНИЯ
         context.user_data.clear()
 
         # Результат
@@ -1900,8 +1884,6 @@ async def process_import_name_file(update: Update, context: ContextTypes.DEFAULT
         )
 
     except Exception as e:
-        # Если ошибка, тоже очищаем данные
-        context.user_data.clear()
         await update.message.reply_text(f"❌ Ошибка при создании квиза: {e}")
 
 def main():
