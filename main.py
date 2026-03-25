@@ -1722,6 +1722,7 @@ def main(import_excel_start=None):
     application.add_handler(CommandHandler("room", simple_create_room))
     application.add_handler(CommandHandler("join", simple_join_command))
     application.add_handler(CommandHandler("import", import_excel_start))
+    application.add_handler(CommandHandler("template", send_template))
 
 
     # ===== ДИАЛОГ СОЗДАНИЯ КВИЗА =====

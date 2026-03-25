@@ -384,16 +384,33 @@ async def process_import_name(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def send_template(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Отправляет шаблон Excel файла"""
-    from excel_importer import create_sample_excel_template
+    import pandas as pd
     import os
 
-    create_sample_excel_template()
+    # Создаем простой DataFrame с примером
+    data = {
+        'Вопрос': ['Столица Франции?', 'Сколько планет в солнечной системе?'],
+        'Вариант1': ['Париж', '7'],
+        'Вариант2': ['Лондон', '8'],
+        'Вариант3': ['Берлин', '9'],
+        'Вариант4': ['Мадрид', '10'],
+        'Правильный ответ': ['Париж', '8'],
+        'Сложность': [1, 2]
+    }
 
-    if os.path.exists('template_questions.xlsx'):
+    df = pd.DataFrame(data)
+
+    # Сохраняем во временный файл
+    filename = 'template_questions.xlsx'
+    df.to_excel(filename, index=False)
+
+    # Отправляем файл
+    with open(filename, 'rb') as f:
         await update.message.reply_document(
-            document=open('template_questions.xlsx', 'rb'),
-            filename='template_questions.xlsx',
+            document=f,
+            filename=filename,
             caption="📊 Шаблон для импорта вопросов\nЗаполни его и отправь мне!"
         )
-    else:
-        await update.message.reply_text("❌ Не удалось создать шаблон")
+
+    # Удаляем временный файл
+    os.remove(filename)
