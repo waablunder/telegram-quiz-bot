@@ -5,15 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Токен бота
-BOT_TOKEN = os.getenv('BOT_TOKEN')
+BOT_TOKEN = "8534805469:AAEUY93MrdpUNrfw85hHJsC4Js-EX1OpNKo"
 
-# Проверка, что токен загружен
-if not BOT_TOKEN:
-    raise ValueError("Нет токена! Создайте .env файл с BOT_TOKEN")
-
-# Настройки базы данных
-DATABASE_NAME = 'quiz_bot.db'
-
-# Настройки квиза
-QUESTIONS_PER_QUIZ = 10  # Количество вопросов за игру
-TIME_PER_QUESTION = 30    # Секунд на ответ
+# Если хочешь через .env, раскомментируй эти строки:
+# BOT_TOKEN = os.getenv('BOT_TOKEN')
+# if not BOT_TOKEN:
+#     raise ValueError("Нет токена! Создайте .env файл с BOT_TOKEN")
