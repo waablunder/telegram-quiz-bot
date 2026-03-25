@@ -1283,6 +1283,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await my_quizzes_command(update, context)
     elif text == "📚 Школьные квизы":
         await school_quizzes_command(update, context)
+    elif text == "📊 Импорт из Excel":
+        await import_excel_start(update, context)
     elif text == "📊 Статистика":
         await stats_command(update, context)
     elif text == "🏆 Топ игроков":
@@ -1698,7 +1700,7 @@ async def finish_simple_game(context, room_code):
     # Удаляем комнату
     del active_rooms[room_code]
 
-def main():
+def main(import_excel_start=None):
     """Главная функция запуска бота"""
     # Инициализируем базу данных
     init_database()
@@ -1719,6 +1721,7 @@ def main():
     application.add_handler(CommandHandler("school", school_quizzes_command))
     application.add_handler(CommandHandler("room", simple_create_room))
     application.add_handler(CommandHandler("join", simple_join_command))
+    application.add_handler(CommandHandler("import", import_excel_start))
 
 
     # ===== ДИАЛОГ СОЗДАНИЯ КВИЗА =====
@@ -1789,6 +1792,7 @@ def main():
     application.add_handler(CallbackQueryHandler(simple_start_game, pattern='^simple_start_'))
     application.add_handler(CallbackQueryHandler(simple_leave_handler, pattern='^simple_leave_'))
     application.add_handler(CallbackQueryHandler(simple_answer_handler, pattern='^simple_answer_'))
+    
 
     # ===== ОБРАБОТЧИК СООБЩЕНИЙ =====
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
