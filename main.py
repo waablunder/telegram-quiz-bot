@@ -1230,8 +1230,12 @@ async def back_to_myquizzes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик обычных сообщений"""
+    if 'import_questions' in context.user_data:
+        # Если данные есть, но пользователь не в процессе импорта (не ждёт название)
+        if context.user_data.get('import_step') != 'waiting_name':
+            context.user_data.pop('import_questions', None)
+            context.user_data.pop('import_step', None)
 
-    # ПРОВЕРЯЕМ, НЕ НАХОДИТСЯ ЛИ ПОЛЬЗОВАТЕЛЬ В ПРОЦЕССЕ СОЗДАНИЯ КВИЗА
     if context.user_data and 'creating_quiz' in context.user_data:
         # Если пользователь в процессе создания, но нажал другую кнопку - отменяем создание
         text = update.message.text
