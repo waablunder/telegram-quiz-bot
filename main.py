@@ -1289,10 +1289,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await top_command(update, context)
     elif text == "❓ Помощь":
         await help_command(update, context)
+    elif text == "📝 Импорт из файла":
+        await import_file_start(update, context)
     else:
-        await update.message.reply_text(
-            "Я не понимаю эту команду. Используй /help для списка команд."
-        )
+        # Не выводим никаких сообщений
+        pass
 
 
 async def simple_create_room(update: Update, context: ContextTypes.DEFAULT_TYPE):
