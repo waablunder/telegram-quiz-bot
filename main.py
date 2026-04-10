@@ -856,6 +856,11 @@ async def get_question_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_question_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Получает текст вопроса"""
+    # Проверяем, что пользователь действительно добавляет вопрос
+    if 'adding_to_quiz' not in context.user_data or 'new_question_diff' not in context.user_data:
+        # Если нет активного добавления вопроса — игнорируем
+        return
+
     # Сохраняем текст вопроса
     context.user_data['new_question_text'] = update.message.text
 
@@ -864,9 +869,6 @@ async def get_question_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📋 Напиши варианты ответов через запятую\n"
         "Например: Москва, Санкт-Петербург, Казань, Новосибирск"
     )
-
-    # Возвращаем состояние для следующего шага (ожидание вариантов)
-    return "WAITING_OPTIONS"
 
 
 async def set_difficulty_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -892,6 +894,10 @@ async def get_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Получает варианты ответов"""
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+    # Проверяем, что пользователь действительно добавляет вопрос
+    if 'new_question_text' not in context.user_data:
+        return
+
     options_text = update.message.text
     options = [opt.strip() for opt in options_text.split(',')]
 
@@ -901,6 +907,7 @@ async def get_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['new_question_options'] = options
 
+    # Показываем кнопки для выбора правильного ответа
     keyboard = []
     for i, opt in enumerate(options):
         keyboard.append([InlineKeyboardButton(f"{i + 1}. {opt}", callback_data=f"select_correct_{i}")])
