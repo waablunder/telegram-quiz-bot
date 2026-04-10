@@ -8,7 +8,7 @@ from telegram.ext import (
     ConversationHandler
 )
 from config import BOT_TOKEN
-from database_postgres import (
+from database import (
     init_database, create_user, get_user_stats,
     get_top_players, get_quiz_by_code, get_quiz_questions,
     get_quiz_stats, get_quiz_results, get_user_quizzes,
