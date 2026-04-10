@@ -346,8 +346,7 @@ async def play_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         info_text,
-        reply_markup=get_quiz_action_keyboard(code),
-        parse_mode='Markdown'
+        reply_markup=get_quiz_action_keyboard(code)
     )
 
 
@@ -1189,20 +1188,28 @@ async def share_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     code = query.data.replace('share_', '')
 
+    # Получаем quiz_id по коду
+    quiz = get_quiz_by_code(code)
+    if not quiz:
+        await query.edit_message_text("❌ Квиз не найден!")
+        return
+
+    quiz_id = quiz[0]
+
     share_text = (
-        f"🔗 **Поделись квизом с друзьями!**\n\n"
-        f"📌 Код квиза: `{code}`\n\n"
+        f"🔗 Поделись квизом с друзьями!\n\n"
+        f"📌 Код квиза: {code}\n\n"
         f"Отправь друзьям этот код, они смогут пройти квиз командой:\n"
-        f"`/play {code}`"
+        f"/play {code}"
     )
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data=f"myquiz_{context.user_data.get('last_quiz_id', 0)}")]]
+    keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data=f"view_quiz_{quiz_id}")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
         share_text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode='Markdown'
+        reply_markup=reply_markup
     )
 
 
@@ -1212,9 +1219,9 @@ async def copy_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     code = query.data.replace('copy_', '')
+
     await query.edit_message_text(
-        f"📋 Код скопирован: `{code}`\n\nОтправь его друзьям!",
-        parse_mode='Markdown'
+        f"📋 Код скопирован: {code}\n\nОтправь его друзьям!"
     )
 
 
