@@ -823,8 +823,6 @@ async def close_school_menu_handler(update: Update, context: ContextTypes.DEFAUL
 
 async def add_question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Начинает добавление вопроса"""
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
     query = update.callback_query
     await query.answer()
 
@@ -840,16 +838,39 @@ async def add_question_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
-        "➕ Добавление вопроса\n\n"
-        "Сначала выбери сложность:",
+        "➕ Добавление вопроса\n\nСначала выбери сложность:",
         reply_markup=reply_markup
     )
+    return "WAITING_DIFFICULTY"  # 👈 ВАЖНО: возвращаем состояние
+
+async def get_question_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Получает текст вопроса"""
+    context.user_data['new_question_text'] = update.message.text
+
+    await update.message.reply_text(
+        "📋 Напиши варианты ответов через запятую\n"
+        "Например: Москва, Санкт-Петербург, Казань, Новосибирск"
+    )
+    return "WAITING_OPTIONS"
+
+
+async def get_question_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Получает текст вопроса"""
+    # Сохраняем текст вопроса
+    context.user_data['new_question_text'] = update.message.text
+
+    # Отправляем сообщение с просьбой ввести варианты ответов
+    await update.message.reply_text(
+        "📋 Напиши варианты ответов через запятую\n"
+        "Например: Москва, Санкт-Петербург, Казань, Новосибирск"
+    )
+
+    # Возвращаем состояние для следующего шага (ожидание вариантов)
+    return "WAITING_OPTIONS"
 
 
 async def set_difficulty_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Сохраняет сложность"""
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
+    """Сохраняет сложность и запрашивает текст вопроса"""
     query = update.callback_query
     await query.answer()
 
@@ -864,7 +885,7 @@ async def set_difficulty_handler(update: Update, context: ContextTypes.DEFAULT_T
     await query.edit_message_text(
         "❓ Напиши текст вопроса:"
     )
-    # Здесь мы не возвращаем состояние, просто ждем следующее сообщение
+    # Не возвращаем состояние — следующий обработчик (get_question_text) перехватит сообщение
 
 
 async def get_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -920,7 +941,10 @@ async def get_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def select_correct_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Сохраняет правильный ответ"""
+    """Сохраняет правильный ответ и добавляет вопрос в БД"""
+    import sqlite3
+    import json
+    from config import DATABASE_NAME
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
     query = update.callback_query
@@ -937,8 +961,7 @@ async def select_correct_handler(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     # Добавляем вопрос в базу данных
-    import json
-    conn = sqlite3.connect('quiz_bot.db')
+    conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
 
     options_json = json.dumps(options, ensure_ascii=False)
@@ -959,24 +982,14 @@ async def select_correct_handler(update: Update, context: ContextTypes.DEFAULT_T
 
     await query.edit_message_text("✅ Вопрос успешно добавлен!")
 
-    # Очищаем данные
+    # Очищаем временные данные
     context.user_data.pop('new_question_text', None)
     context.user_data.pop('new_question_options', None)
     context.user_data.pop('new_question_diff', None)
     context.user_data.pop('adding_to_quiz', None)
 
-    # Возвращаемся к редактированию
-    fake_update = type('obj', (object,), {
-        'callback_query': type('obj', (object,), {
-            'data': f"edit_quiz_{quiz_id}",
-            'answer': lambda: None,
-            'from_user': query.from_user,
-            'message': query.message,
-            'edit_message_text': query.edit_message_text
-        })
-    })
-
-    await edit_quiz_handler(fake_update, context)
+    # Возвращаемся к редактированию квиза
+    await edit_quiz_handler(update, context)
 
 
 async def delete_question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1709,6 +1722,7 @@ def main():
     # Создаем приложение
     application = Application.builder().token(BOT_TOKEN).build()
 
+
     # ===== ОБЫЧНЫЕ КОМАНДЫ =====
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
@@ -1728,14 +1742,13 @@ def main():
         create_question_options, create_correct_answer,
         add_more_question, finish_quiz_creation, cancel_creation,
         NAME, DESCRIPTION, DIFFICULTY, QUESTION, OPTIONS,
-        CORRECT_ANSWER, CONFIRM,
-        IMPORT_WAIT_FILE, IMPORT_CONFIRM
+        CORRECT_ANSWER, CONFIRM
     )
 
     # ===== ДИАЛОГ СОЗДАНИЯ КВИЗА =====
     conv_handler = ConversationHandler(
         entry_points=[
-            CommandHandler("create", create_quiz_start),  # Вот здесь уже есть create_quiz_start
+            CommandHandler("create", create_quiz_start),
             MessageHandler(filters.Regex('^➕ Создать квиз$'), create_quiz_start)
         ],
         states={
@@ -1774,6 +1787,9 @@ def main():
     application.add_handler(CallbackQueryHandler(simple_start_game, pattern='^simple_start_'))
     application.add_handler(CallbackQueryHandler(simple_leave_handler, pattern='^simple_leave_'))
     application.add_handler(CallbackQueryHandler(simple_answer_handler, pattern='^simple_answer_'))
+    application.add_handler(CallbackQueryHandler(set_difficulty_handler, pattern='^set_diff_'))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, get_question_text, block=False))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, get_options, block=False))
     
 
     # ===== ОБРАБОТЧИК СООБЩЕНИЙ =====
