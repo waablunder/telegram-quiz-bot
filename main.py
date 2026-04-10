@@ -1730,7 +1730,7 @@ def main():
         ADD_QUESTION_DIFF, ADD_QUESTION_TEXT, ADD_QUESTION_OPTIONS, ADD_QUESTION_CORRECT
     )
 
-    # ===== ДИАЛОГ ДОБАВЛЕНИЯ ВОПРОСА =====
+    # ===== ДИАЛОГ ДОБАВЛЕНИЯ ВОПРОСА В СУЩЕСТВУЮЩИЙ КВИЗ =====
     add_question_conv = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(add_question_to_quiz_start, pattern='^add_question_')
