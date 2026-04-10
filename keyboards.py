@@ -27,10 +27,11 @@ def get_answer_keyboard(options, quiz_code=None):
 
 
 def get_quiz_action_keyboard(quiz_code):
-    """Клавиатура для действий с квизом"""
+    """Клавиатура для действий с квизом (без статистики)"""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
     keyboard = [
         [InlineKeyboardButton("▶ Начать квиз", callback_data=f"start_quiz_{quiz_code}")],
-        [InlineKeyboardButton("📊 Статистика квиза", callback_data=f"quiz_stats_{quiz_code}")],
         [InlineKeyboardButton("🔗 Поделиться", callback_data=f"share_{quiz_code}")]
     ]
     return InlineKeyboardMarkup(keyboard)

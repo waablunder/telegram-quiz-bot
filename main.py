@@ -1188,20 +1188,14 @@ async def share_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     code = query.data.replace('share_', '')
 
-    # Получаем quiz_id по коду
-    quiz = get_quiz_by_code(code)
-    if not quiz:
-        await query.edit_message_text("❌ Квиз не найден!")
-        return
-
-    quiz_id = quiz[0]
-
     share_text = (
         f"🔗 Поделись квизом с друзьями!\n\n"
         f"📌 Код квиза: {code}\n\n"
         f"Отправь друзьям этот код, они смогут пройти квиз командой:\n"
         f"/play {code}"
     )
+
+    await query.edit_message_text(share_text)
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data=f"view_quiz_{quiz_id}")]]
