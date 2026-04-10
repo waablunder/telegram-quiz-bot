@@ -843,15 +843,19 @@ async def add_question_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     return "WAITING_DIFFICULTY"  # 👈 ВАЖНО: возвращаем состояние
 
+
 async def get_question_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Получает текст вопроса"""
+    # Проверяем, что пользователь действительно добавляет вопрос
+    if 'adding_to_quiz' not in context.user_data:
+        return
+
     context.user_data['new_question_text'] = update.message.text
 
     await update.message.reply_text(
         "📋 Напиши варианты ответов через запятую\n"
         "Например: Москва, Санкт-Петербург, Казань, Новосибирск"
     )
-    return "WAITING_OPTIONS"
 
 
 async def get_question_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -893,7 +897,7 @@ async def get_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Проверяем, что есть текст вопроса
     if 'new_question_text' not in context.user_data:
-        return  # 👈 ВАЖНО: выходим, если не в процессе добавления
+        return
 
     options_text = update.message.text
     options = [opt.strip() for opt in options_text.split(',')]
@@ -1246,36 +1250,6 @@ async def back_to_myquizzes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик обычных сообщений"""
-
-    if context.user_data and 'creating_quiz' in context.user_data:
-        # Если пользователь в процессе создания, но нажал другую кнопку - отменяем создание
-        text = update.message.text
-
-        # Список кнопок главного меню
-        menu_buttons = ["🎮 Играть", "➕ Создать квиз", "📋 Мои квизы", "📚 Школьные квизы",
-                        "📊 Статистика", "🏆 Топ игроков", "❓ Помощь", "📝 Импорт из файла"]
-
-        if text == "🎮 Играть":
-            await update.message.reply_text(
-                "Введи код квиза командой:\n/play КОД\n\n"
-                "Например: /play QUIZ_ABC123"
-            )
-        elif text == "➕ Создать квиз":
-            await create_quiz_start(update, context)
-        elif text == "📋 Мои квизы":
-            await my_quizzes_command(update, context)
-        elif text == "📚 Школьные квизы":
-            await school_quizzes_command(update, context)
-        elif text == "📊 Статистика":
-            await stats_command(update, context)
-        elif text == "🏆 Топ игроков":
-            await top_command(update, context)
-        elif text == "❓ Помощь":
-            await help_command(update, context)
-        else:
-            pass
-
-    # ДАЛЬШЕ ИДЕТ ОБЫЧНАЯ ОБРАБОТКА СООБЩЕНИЙ
     text = update.message.text
 
     if text == "🎮 Играть":
@@ -1296,7 +1270,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "❓ Помощь":
         await help_command(update, context)
     else:
-        # Не выводим никаких сообщений
         pass
 
 
