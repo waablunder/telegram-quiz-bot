@@ -857,14 +857,11 @@ async def get_question_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_question_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Получает текст вопроса"""
     # Проверяем, что пользователь действительно добавляет вопрос
-    if 'adding_to_quiz' not in context.user_data or 'new_question_diff' not in context.user_data:
-        # Если нет активного добавления вопроса — игнорируем
-        return
+    if 'adding_to_quiz' not in context.user_data:
+        return  # 👈 ВАЖНО: выходим, если не в процессе добавления
 
-    # Сохраняем текст вопроса
     context.user_data['new_question_text'] = update.message.text
 
-    # Отправляем сообщение с просьбой ввести варианты ответов
     await update.message.reply_text(
         "📋 Напиши варианты ответов через запятую\n"
         "Например: Москва, Санкт-Петербург, Казань, Новосибирск"
@@ -894,9 +891,9 @@ async def get_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Получает варианты ответов"""
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-    # Проверяем, что пользователь действительно добавляет вопрос
+    # Проверяем, что есть текст вопроса
     if 'new_question_text' not in context.user_data:
-        return
+        return  # 👈 ВАЖНО: выходим, если не в процессе добавления
 
     options_text = update.message.text
     options = [opt.strip() for opt in options_text.split(',')]
@@ -907,7 +904,6 @@ async def get_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['new_question_options'] = options
 
-    # Показываем кнопки для выбора правильного ответа
     keyboard = []
     for i, opt in enumerate(options):
         keyboard.append([InlineKeyboardButton(f"{i + 1}. {opt}", callback_data=f"select_correct_{i}")])
@@ -1259,34 +1255,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         menu_buttons = ["🎮 Играть", "➕ Создать квиз", "📋 Мои квизы", "📚 Школьные квизы",
                         "📊 Статистика", "🏆 Топ игроков", "❓ Помощь", "📝 Импорт из файла"]
 
-        if text in menu_buttons:
-            # Очищаем данные создания квиза
-            context.user_data.clear()
+        if text == "🎮 Играть":
             await update.message.reply_text(
-                "❌ Создание квиза отменено.",
-                reply_markup=get_main_keyboard()
+                "Введи код квиза командой:\n/play КОД\n\n"
+                "Например: /play QUIZ_ABC123"
             )
-
-            # Перенаправляем на выбранную кнопку
-            if text == "🎮 Играть":
-                await update.message.reply_text(
-                    "Введи код квиза командой:\n/play КОД\n\nНапример: /play QUIZ_ABC123"
-                )
-            elif text == "➕ Создать квиз":
-                await create_quiz_start(update, context)
-            elif text == "📋 Мои квизы":
-                await my_quizzes_command(update, context)
-            elif text == "📚 Школьные квизы":
-                await school_quizzes_command(update, context)
-            elif text == "📊 Статистика":
-                await stats_command(update, context)
-            elif text == "🏆 Топ игроков":
-                await top_command(update, context)
-            elif text == "❓ Помощь":
-                await help_command(update, context)
-            elif text == "📝 Импорт из файла":
-                await import_file_start(update, context)
-            return
+        elif text == "➕ Создать квиз":
+            await create_quiz_start(update, context)
+        elif text == "📋 Мои квизы":
+            await my_quizzes_command(update, context)
+        elif text == "📚 Школьные квизы":
+            await school_quizzes_command(update, context)
+        elif text == "📊 Статистика":
+            await stats_command(update, context)
+        elif text == "🏆 Топ игроков":
+            await top_command(update, context)
+        elif text == "❓ Помощь":
+            await help_command(update, context)
+        else:
+            pass
 
     # ДАЛЬШЕ ИДЕТ ОБЫЧНАЯ ОБРАБОТКА СООБЩЕНИЙ
     text = update.message.text
@@ -1308,8 +1295,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await top_command(update, context)
     elif text == "❓ Помощь":
         await help_command(update, context)
-    elif text == "📝 Импорт из файла":
-        await import_file_start(update, context)
     else:
         # Не выводим никаких сообщений
         pass
@@ -1797,9 +1782,6 @@ def main():
     application.add_handler(CallbackQueryHandler(set_difficulty_handler, pattern='^set_diff_'))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, get_question_text, block=False))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, get_options, block=False))
-    
-
-    # ===== ОБРАБОТЧИК СООБЩЕНИЙ =====
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Запускаем бота
