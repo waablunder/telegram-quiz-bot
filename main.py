@@ -1699,38 +1699,26 @@ def main():
     application.add_handler(CommandHandler("room", simple_create_room))
     application.add_handler(CommandHandler("join", simple_join_command))
 
-
-    # ===== ДИАЛОГ СОЗДАНИЯ КВИЗА =====
+    # ===== ДИАЛОГ ДОБАВЛЕНИЯ ВОПРОСА В СУЩЕСТВУЮЩИЙ КВИЗ =====
     from quiz_creator import (
-        create_quiz_start, create_quiz_name, create_quiz_description,
-        create_question_difficulty, create_question_text,
-        create_question_options, create_correct_answer,
-        add_more_question, finish_quiz_creation, cancel_creation,
-        NAME, DESCRIPTION, DIFFICULTY, QUESTION, OPTIONS,
-        CORRECT_ANSWER, CONFIRM
+        add_question_to_quiz_start, add_question_difficulty,
+        add_question_text, add_question_options, add_question_correct,
+        ADD_QUESTION_DIFF, ADD_QUESTION_TEXT, ADD_QUESTION_OPTIONS, ADD_QUESTION_CORRECT
     )
 
-    # ===== ДИАЛОГ СОЗДАНИЯ КВИЗА =====
-    conv_handler = ConversationHandler(
+    add_question_conv = ConversationHandler(
         entry_points=[
-            CommandHandler("create", create_quiz_start),
-            MessageHandler(filters.Regex('^➕ Создать квиз$'), create_quiz_start)
+            CallbackQueryHandler(add_question_to_quiz_start, pattern='^add_question_')
         ],
         states={
-            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_quiz_name)],
-            DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_quiz_description)],
-            DIFFICULTY: [CallbackQueryHandler(create_question_difficulty, pattern='^diff_')],
-            QUESTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_question_text)],
-            OPTIONS: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_question_options)],
-            CORRECT_ANSWER: [CallbackQueryHandler(create_correct_answer, pattern='^correct_')],
-            CONFIRM: [
-                CallbackQueryHandler(add_more_question, pattern='^add_more$'),
-                CallbackQueryHandler(finish_quiz_creation, pattern='^finish_quiz$')
-            ],
+            ADD_QUESTION_DIFF: [CallbackQueryHandler(add_question_difficulty, pattern='^add_q_diff_')],
+            ADD_QUESTION_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_question_text)],
+            ADD_QUESTION_OPTIONS: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_question_options)],
+            ADD_QUESTION_CORRECT: [CallbackQueryHandler(add_question_correct, pattern='^add_q_correct_')],
         },
         fallbacks=[CommandHandler("cancel", cancel_creation)],
     )
-    application.add_handler(conv_handler)
+    application.add_handler(add_question_conv)
 
     # ===== CALLBACK-ОБРАБОТЧИКИ =====
     application.add_handler(CallbackQueryHandler(start_quiz_game, pattern='^start_quiz_'))

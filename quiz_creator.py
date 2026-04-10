@@ -3,14 +3,14 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from database import create_quiz, add_question_to_quiz, get_user_quizzes, get_quiz_questions, get_quiz_stats
 
-# Состояния для импорта Excel
-(IMPORT_WAIT_FILE, IMPORT_CONFIRM) = range(14, 16)
-
 # Состояния для диалога создания квиза
 (NAME, DESCRIPTION, QUESTION, OPTIONS, CORRECT_ANSWER, DIFFICULTY, CONFIRM) = range(7)
 
 # Состояния для редактирования квиза
 (EDIT_MENU, EDIT_SELECT_QUESTION, EDIT_QUESTION_TEXT, EDIT_OPTIONS, EDIT_CORRECT, EDIT_DIFFICULTY, EDIT_CONFIRM_DELETE) = range(7, 14)
+
+# Состояния для добавления вопроса в существующий квиз
+(ADD_QUESTION_DIFF, ADD_QUESTION_TEXT, ADD_QUESTION_OPTIONS, ADD_QUESTION_CORRECT) = range(14, 18)
 
 
 class QuizCreator:
@@ -82,6 +82,148 @@ async def create_quiz_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return DESCRIPTION
 
+
+async def add_question_to_quiz_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Начинает добавление вопроса в существующий квиз"""
+    query = update.callback_query
+    await query.answer()
+
+    quiz_id = int(query.data.replace('add_question_', ''))
+    context.user_data['editing_quiz_id'] = quiz_id
+
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    keyboard = [
+        [InlineKeyboardButton("⭐ Легкий (1-3)", callback_data="add_q_diff_3")],
+        [InlineKeyboardButton("⭐⭐ Средний (4-7)", callback_data="add_q_diff_6")],
+        [InlineKeyboardButton("⭐⭐⭐ Сложный (8-10)", callback_data="add_q_diff_9")],
+        [InlineKeyboardButton("🔙 Отмена", callback_data=f"edit_quiz_{quiz_id}")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.edit_message_text(
+        "➕ **Добавление вопроса**\n\nВыбери сложность вопроса:",
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
+    )
+    return ADD_QUESTION_DIFF
+
+
+async def add_question_difficulty(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сохраняет сложность и запрашивает текст вопроса"""
+    query = update.callback_query
+    await query.answer()
+
+    difficulty_map = {
+        'add_q_diff_3': 3,
+        'add_q_diff_6': 6,
+        'add_q_diff_9': 9
+    }
+
+    context.user_data['new_question_diff'] = difficulty_map.get(query.data, 5)
+
+    await query.edit_message_text(
+        "❓ Напиши текст вопроса:"
+    )
+    return ADD_QUESTION_TEXT
+
+
+async def add_question_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Получает текст вопроса"""
+    context.user_data['new_question_text'] = update.message.text
+
+    await update.message.reply_text(
+        "📋 Напиши варианты ответов через запятую\n"
+        "Например: Москва, Санкт-Петербург, Казань, Новосибирск"
+    )
+    return ADD_QUESTION_OPTIONS
+
+
+async def add_question_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Получает варианты ответов"""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    options_text = update.message.text
+    options = [opt.strip() for opt in options_text.split(',')]
+
+    if len(options) < 2:
+        await update.message.reply_text("❌ Нужно минимум 2 варианта! Попробуй еще раз:")
+        return ADD_QUESTION_OPTIONS
+
+    context.user_data['new_question_options'] = options
+
+    keyboard = []
+    for i, opt in enumerate(options):
+        keyboard.append([InlineKeyboardButton(f"{i + 1}. {opt}", callback_data=f"add_q_correct_{i}")])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        "✅ Выбери правильный ответ:",
+        reply_markup=reply_markup
+    )
+    return ADD_QUESTION_CORRECT
+
+
+async def add_question_correct(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сохраняет правильный ответ и добавляет вопрос в БД"""
+    import sqlite3
+    import json
+    from config import DATABASE_NAME
+
+    query = update.callback_query
+    await query.answer()
+
+    answer_index = int(query.data.replace('add_q_correct_', ''))
+    options = context.user_data['new_question_options']
+    correct = options[answer_index]
+
+    quiz_id = context.user_data.get('editing_quiz_id')
+
+    if not quiz_id:
+        await query.edit_message_text("❌ Ошибка: не найден ID квиза")
+        return
+
+    # Добавляем вопрос в базу данных
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+
+    options_json = json.dumps(options, ensure_ascii=False)
+
+    cursor.execute('''
+        INSERT INTO questions (quiz_id, question_text, options, correct_answer, difficulty)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (
+        quiz_id,
+        context.user_data['new_question_text'],
+        options_json,
+        correct,
+        context.user_data['new_question_diff']
+    ))
+
+    conn.commit()
+    conn.close()
+
+    await query.edit_message_text("✅ Вопрос успешно добавлен!")
+
+    # Очищаем временные данные
+    context.user_data.pop('new_question_text', None)
+    context.user_data.pop('new_question_options', None)
+    context.user_data.pop('new_question_diff', None)
+
+    # Возвращаемся к редактированию квиза
+    from main import edit_quiz_handler
+    fake_update = type('obj', (object,), {
+        'callback_query': type('obj', (object,), {
+            'data': f"edit_quiz_{quiz_id}",
+            'answer': lambda: None,
+            'from_user': query.from_user,
+            'message': query.message,
+            'edit_message_text': query.edit_message_text
+        })
+    })
+    await edit_quiz_handler(fake_update, context)
+    return ConversationHandler.END
 
 async def create_quiz_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Получает описание квиза"""
@@ -272,145 +414,3 @@ async def cancel_creation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-async def import_excel_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Начинает процесс импорта из Excel"""
-    await update.message.reply_text(
-        "📊 **Импорт вопросов из Excel**\n\n"
-        "Отправь мне Excel файл с вопросами.\n\n"
-        "Файл должен содержать колонки:\n"
-        "• Вопрос\n"
-        "• Вариант1, Вариант2, Вариант3, Вариант4\n"
-        "• Правильный ответ\n"
-        "• Сложность (от 1 до 10)\n\n"
-        "Пример файла можно скачать командой /template",
-        parse_mode='Markdown'
-    )
-    return IMPORT_WAIT_FILE
-
-
-async def handle_excel_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает загруженный Excel файл"""
-    from excel_importer import ExcelImporter
-
-    # Получаем файл
-    file = await update.message.document.get_file()
-
-    # Создаем временное имя файла
-    import os
-    import time
-    temp_filename = f"temp_import_{update.effective_user.id}_{int(time.time())}.xlsx"
-
-    # Скачиваем файл
-    await file.download_to_drive(temp_filename)
-
-    # Спрашиваем название квиза
-    context.user_data['import_file'] = temp_filename
-    context.user_data['import_step'] = 'waiting_name'
-
-    await update.message.reply_text(
-        "📝 Придумай название для квиза (или отправь 'пропустить' для имени по умолчанию):"
-    )
-    return IMPORT_CONFIRM
-
-
-async def process_import_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает название квиза и запускает импорт"""
-    from excel_importer import ExcelImporter
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
-    text = update.message.text
-    temp_filename = context.user_data.get('import_file')
-
-    quiz_name = None
-    if text.lower() != 'пропустить':
-        quiz_name = text
-
-    # Отправляем сообщение о начале импорта
-    status_msg = await update.message.reply_text("⏳ Идет импорт вопросов...")
-
-    # Запускаем импорт
-    importer = ExcelImporter()
-    result, errors = importer.import_from_excel(
-        temp_filename,
-        update.effective_user.id,
-        quiz_name
-    )
-
-    # Удаляем временный файл
-    import os
-    try:
-        os.remove(temp_filename)
-    except:
-        pass
-
-    # Очищаем данные
-    context.user_data.pop('import_file', None)
-    context.user_data.pop('import_step', None)
-
-    if result:
-        # Успешный импорт
-        success_text = (
-            f"✅ **Импорт завершен!**\n\n"
-            f"📌 Квиз: {result['count']} вопросов\n"
-            f"🔑 Код: `{result['quiz_code']}`\n\n"
-            f"Можешь поделиться кодом с друзьями!"
-        )
-
-        keyboard = [[InlineKeyboardButton("▶ Начать квиз", callback_data=f"start_quiz_{result['quiz_code']}")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await status_msg.delete()
-        await update.message.reply_text(
-            success_text,
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
-
-        # Если были ошибки, показываем их
-        if errors:
-            error_text = "⚠️ **Ошибки в некоторых строках:**\n" + "\n".join(errors[:5])
-            if len(errors) > 5:
-                error_text += f"\n...и еще {len(errors) - 5} ошибок"
-            await update.message.reply_text(error_text, parse_mode='Markdown')
-
-    else:
-        # Ошибка импорта
-        error_text = "❌ **Ошибка импорта:**\n" + "\n".join(errors[:10])
-        await status_msg.delete()
-        await update.message.reply_text(error_text, parse_mode='Markdown')
-
-    return ConversationHandler.END
-
-
-async def send_template(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Отправляет шаблон Excel файла"""
-    import pandas as pd
-    import os
-
-    # Создаем простой DataFrame с примером
-    data = {
-        'Вопрос': ['Столица Франции?', 'Сколько планет в солнечной системе?'],
-        'Вариант1': ['Париж', '7'],
-        'Вариант2': ['Лондон', '8'],
-        'Вариант3': ['Берлин', '9'],
-        'Вариант4': ['Мадрид', '10'],
-        'Правильный ответ': ['Париж', '8'],
-        'Сложность': [1, 2]
-    }
-
-    df = pd.DataFrame(data)
-
-    # Сохраняем во временный файл
-    filename = 'template_questions.xlsx'
-    df.to_excel(filename, index=False)
-
-    # Отправляем файл
-    with open(filename, 'rb') as f:
-        await update.message.reply_document(
-            document=f,
-            filename=filename,
-            caption="📊 Шаблон для импорта вопросов\nЗаполни его и отправь мне!"
-        )
-
-    # Удаляем временный файл
-    os.remove(filename)
