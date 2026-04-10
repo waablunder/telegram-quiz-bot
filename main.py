@@ -1780,8 +1780,6 @@ def main():
     application.add_handler(CallbackQueryHandler(simple_leave_handler, pattern='^simple_leave_'))
     application.add_handler(CallbackQueryHandler(simple_answer_handler, pattern='^simple_answer_'))
     application.add_handler(CallbackQueryHandler(set_difficulty_handler, pattern='^set_diff_'))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, get_question_text, block=False))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, get_options, block=False))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Запускаем бота
