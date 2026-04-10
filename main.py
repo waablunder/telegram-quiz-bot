@@ -8,11 +8,11 @@ from telegram.ext import (
     ConversationHandler
 )
 from config import BOT_TOKEN
-from database import (
-    init_database, get_user, create_user, get_user_stats,
+from database_postgres import (
+    init_database, create_user, get_user_stats,
     get_top_players, get_quiz_by_code, get_quiz_questions,
     get_quiz_stats, get_quiz_results, get_user_quizzes,
-    save_quiz_result_with_details
+    save_quiz_result_with_details, create_quiz, add_question_to_quiz
 )
 from keyboards import (
     get_main_keyboard, get_answer_keyboard, get_quiz_action_keyboard,
@@ -1706,19 +1706,27 @@ def main():
         ADD_QUESTION_DIFF, ADD_QUESTION_TEXT, ADD_QUESTION_OPTIONS, ADD_QUESTION_CORRECT
     )
 
-    add_question_conv = ConversationHandler(
+    # ===== ДИАЛОГ СОЗДАНИЯ КВИЗА =====
+    conv_handler = ConversationHandler(
         entry_points=[
-            CallbackQueryHandler(add_question_to_quiz_start, pattern='^add_question_')
+            CommandHandler("create", create_quiz_start),
+            MessageHandler(filters.Regex('^➕ Создать квиз$'), create_quiz_start)
         ],
         states={
-            ADD_QUESTION_DIFF: [CallbackQueryHandler(add_question_difficulty, pattern='^add_q_diff_')],
-            ADD_QUESTION_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_question_text)],
-            ADD_QUESTION_OPTIONS: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_question_options)],
-            ADD_QUESTION_CORRECT: [CallbackQueryHandler(add_question_correct, pattern='^add_q_correct_')],
+            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_quiz_name)],
+            DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_quiz_description)],
+            DIFFICULTY: [CallbackQueryHandler(create_question_difficulty, pattern='^diff_')],
+            QUESTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_question_text)],
+            OPTIONS: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_question_options)],
+            CORRECT_ANSWER: [CallbackQueryHandler(create_correct_answer, pattern='^correct_')],
+            CONFIRM: [
+                CallbackQueryHandler(add_more_question, pattern='^add_more$'),
+                CallbackQueryHandler(finish_quiz_creation, pattern='^finish_quiz$')
+            ],
         },
         fallbacks=[CommandHandler("cancel", cancel_creation)],
     )
-    application.add_handler(add_question_conv)
+    application.add_handler(conv_handler)
 
     # ===== CALLBACK-ОБРАБОТЧИКИ =====
     application.add_handler(CallbackQueryHandler(start_quiz_game, pattern='^start_quiz_'))
