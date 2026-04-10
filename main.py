@@ -1701,13 +1701,6 @@ def main():
     application.add_handler(CommandHandler("room", simple_create_room))
     application.add_handler(CommandHandler("join", simple_join_command))
 
-    # ===== ДИАЛОГ ДОБАВЛЕНИЯ ВОПРОСА В СУЩЕСТВУЮЩИЙ КВИЗ =====
-    from quiz_creator import (
-        add_question_to_quiz_start, add_question_difficulty,
-        add_question_text, add_question_options, add_question_correct,
-        ADD_QUESTION_DIFF, ADD_QUESTION_TEXT, ADD_QUESTION_OPTIONS, ADD_QUESTION_CORRECT
-    )
-
     # ===== ДИАЛОГ СОЗДАНИЯ КВИЗА =====
     conv_handler = ConversationHandler(
         entry_points=[
@@ -1737,6 +1730,7 @@ def main():
         ADD_QUESTION_DIFF, ADD_QUESTION_TEXT, ADD_QUESTION_OPTIONS, ADD_QUESTION_CORRECT
     )
 
+    # ===== ДИАЛОГ ДОБАВЛЕНИЯ ВОПРОСА =====
     add_question_conv = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(add_question_to_quiz_start, pattern='^add_question_')

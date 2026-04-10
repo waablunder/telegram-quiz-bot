@@ -85,10 +85,12 @@ async def create_quiz_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def add_question_to_quiz_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Начинает добавление вопроса в существующий квиз"""
+    print("🔍 add_question_to_quiz_start вызвана")  # отладка
     query = update.callback_query
     await query.answer()
 
     quiz_id = int(query.data.replace('add_question_', ''))
+    print(f"🔍 quiz_id: {quiz_id}")  # отладка
     context.user_data['editing_quiz_id'] = quiz_id
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
