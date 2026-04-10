@@ -75,8 +75,8 @@ async def create_quiz_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def create_quiz_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Получает название квиза"""
+    print(f"🔍 create_quiz_name вызвана, текст: {update.message.text}")  # отладка
     context.user_data['quiz_name'] = update.message.text
-
     await update.message.reply_text(
         "📝 Теперь напиши описание квиза (о чем он, для кого, какие темы):"
     )

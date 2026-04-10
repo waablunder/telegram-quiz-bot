@@ -21,7 +21,6 @@ from keyboards import (
 from quiz_logic import QuizGame
 from school_quizzes import add_school_quizzes, get_school_quizzes_list
 
-# ИМПОРТЫ ИЗ QUIZ_CREATOR
 from quiz_creator import (
     create_quiz_start, create_quiz_name, create_quiz_description,
     create_question_difficulty, create_question_text,
