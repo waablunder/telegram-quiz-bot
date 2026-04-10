@@ -27,7 +27,10 @@ from quiz_creator import (
     create_question_options, create_correct_answer,
     add_more_question, finish_quiz_creation, cancel_creation,
     NAME, DESCRIPTION, DIFFICULTY, QUESTION, OPTIONS,
-    CORRECT_ANSWER, CONFIRM
+    CORRECT_ANSWER, CONFIRM,
+    add_question_to_quiz_start, add_question_difficulty,
+    add_question_text, add_question_options, add_question_correct,
+    ADD_QUESTION_DIFF, ADD_QUESTION_TEXT, ADD_QUESTION_OPTIONS, ADD_QUESTION_CORRECT
 )
 
 # Настройка логирования
@@ -1726,6 +1729,27 @@ def main():
         fallbacks=[CommandHandler("cancel", cancel_creation)],
     )
     application.add_handler(conv_handler)
+
+    # ===== ДИАЛОГ ДОБАВЛЕНИЯ ВОПРОСА В СУЩЕСТВУЮЩИЙ КВИЗ =====
+    from quiz_creator import (
+        add_question_to_quiz_start, add_question_difficulty,
+        add_question_text, add_question_options, add_question_correct,
+        ADD_QUESTION_DIFF, ADD_QUESTION_TEXT, ADD_QUESTION_OPTIONS, ADD_QUESTION_CORRECT
+    )
+
+    add_question_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(add_question_to_quiz_start, pattern='^add_question_')
+        ],
+        states={
+            ADD_QUESTION_DIFF: [CallbackQueryHandler(add_question_difficulty, pattern='^add_q_diff_')],
+            ADD_QUESTION_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_question_text)],
+            ADD_QUESTION_OPTIONS: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_question_options)],
+            ADD_QUESTION_CORRECT: [CallbackQueryHandler(add_question_correct, pattern='^add_q_correct_')],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_creation)],
+    )
+    application.add_handler(add_question_conv)
 
     # ===== CALLBACK-ОБРАБОТЧИКИ =====
     application.add_handler(CallbackQueryHandler(start_quiz_game, pattern='^start_quiz_'))

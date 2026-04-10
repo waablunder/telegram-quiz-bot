@@ -102,9 +102,8 @@ async def add_question_to_quiz_start(update: Update, context: ContextTypes.DEFAU
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
-        "➕ **Добавление вопроса**\n\nВыбери сложность вопроса:",
-        reply_markup=reply_markup,
-        parse_mode='Markdown'
+        "➕ Добавление вопроса\n\nВыбери сложность вопроса:",
+        reply_markup=reply_markup
     )
     return ADD_QUESTION_DIFF
 
